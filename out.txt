@@ -1,0 +1,1 @@
+#include<stdio.h>#include<string.h>#include<activaut.h>intmain(){printf("/Hello,World!");return0;}
