@@ -39,6 +39,87 @@ int validNum(char num[])
     return 0;
 }
 
+int is_letter(char c)
+{
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int is_alphanum(char c)
+{
+    if (is_digit(c) || is_letter(c))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int is_operator(char c)
+{
+    if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' || c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '^' || c == '~')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int is_separator(char c)
+{
+    if (c == ',' || c == ';')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int is_parenthesis(char c)
+{
+    if (c == '(' || c == ')')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int is_bracket(char c)
+{
+    if (c == '{' || c == '}')
+    {
+        return 1;
+    }
+    return 0;
+}
+int is_keyword(char word[])
+{
+    char keywords[32][10] = {
+        "auto", "break", "case", "char", "const", "continue", "default",
+        "do", "double", "else", "enum", "extern", "float", "for", "goto",
+        "if", "int", "long", "register", "return", "short", "signed",
+        "sizeof", "static", "struct", "switch", "typedef", "union",
+        "unsigned", "void", "volatile", "while"};
+
+    for (int i = 0; i < 32; i++)
+    {
+        if (strcmp(word, keywords[i]) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int is_identifier(char word[])
+{
+    if (is_alphanum(word[0]))
+    {
+        return 1;
+    }
+    return 0;
+}
+
 int main()
 {
     // char a[20];
