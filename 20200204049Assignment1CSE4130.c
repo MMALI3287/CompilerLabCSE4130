@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <ctype.h>
 
+const char *keywords[32] = {"auto", "break", "case", "char", "const", "continue", "default",
+                            "do", "double", "else", "enum", "extern", "float", "for", "goto",
+                            "if", "int", "long", "register", "return", "short", "signed",
+                            "sizeof", "static", "struct", "switch", "typedef", "union",
+                            "unsigned", "void", "volatile", "while"};
+
 int is_digit(char c)
 {
     if (c >= '0' && c <= '9')
@@ -14,7 +20,8 @@ int is_digit(char c)
 int validNum(char num[])
 {
     char state = 'p';
-    for (int i = 0; i < strlen(num); i++)
+    int stringlength = strlen(num);
+    for (int i = 0; i < stringlength; i++)
     {
         char c = num[i];
 
@@ -58,13 +65,34 @@ int is_alphanum(char c)
     return 0;
 }
 
-int is_operator(char c)
+int is_operator(char c, char next_c)
 {
-    if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' || c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '^' || c == '~')
+    switch (c)
     {
+    case '=':
+    case '<':
+    case '>':
+    case '!':
+    case '&':
+    case '|':
+        switch (next_c)
+        {
+        case '=':
+        case '&':
+        case '|':
+            return 2;
+        }
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+    case '%':
+    case '^':
+    case '~':
         return 1;
+    default:
+        return 0;
     }
-    return 0;
 }
 
 int is_separator(char c)
@@ -87,7 +115,7 @@ int is_parenthesis(char c)
 
 int is_bracket(char c)
 {
-    if (c == '{' || c == '}')
+    if (c == '{' || c == '}' || c == '[' || c == ']')
     {
         return 1;
     }
@@ -96,14 +124,8 @@ int is_bracket(char c)
 
 int is_keyword(char word[])
 {
-    char keywords[32][10] = {
-        "auto", "break", "case", "char", "const", "continue", "default",
-        "do", "double", "else", "enum", "extern", "float", "for", "goto",
-        "if", "int", "long", "register", "return", "short", "signed",
-        "sizeof", "static", "struct", "switch", "typedef", "union",
-        "unsigned", "void", "volatile", "while"};
-
-    for (int i = 0; i < 32; i++)
+    int length = sizeof(keywords) / sizeof(keywords[0]);
+    for (int i = 0; i < length; i++)
     {
         if (strcmp(word, keywords[i]) == 0)
         {
@@ -116,7 +138,8 @@ int is_keyword(char word[])
 int is_identifier(char word[])
 {
     char state = 'p';
-    for (int i = 0; i < strlen(word); i++)
+    int stringlength = strlen(word);
+    for (int i = 0; i < stringlength; i++)
     {
         char c = word[i];
         if (state == 'p' && (is_letter(c) || c == '_'))
@@ -141,7 +164,7 @@ int is_preprocessor(char word[])
 int is_library(char word[])
 {
     int length = strlen(word);
-    if (length >= 2 && strcmp(word + length - 2, ".h") == 0)
+    if (length > 2 && strcmp(word + length - 2, ".h") == 0)
     {
         return 1;
     }
@@ -217,17 +240,25 @@ void removeComments(FILE *inputF, FILE *outputF)
 
 void lexemSeparation(FILE *inputF, FILE *outputF)
 {
-    char c, previousC;
+    char c, previousC, nextC;
 
     while ((c = fgetc(inputF)) != EOF)
     {
-        if ((isspace(previousC) || is_operator(previousC) || is_bracket(previousC) || is_separator(previousC) || is_parenthesis(previousC)) && isspace(c))
+        nextC = fgetc(inputF);
+        ungetc(nextC, inputF);
+        int operator_length = is_operator(c, nextC);
+        if ((isspace(previousC) || operator_length || is_bracket(c) || is_separator(c) || is_parenthesis(c)) && isspace(c))
             continue;
-        else if (is_operator(c) || is_bracket(c) || is_separator(c) || is_parenthesis(c))
+        else if (operator_length || is_bracket(c) || is_separator(c) || is_parenthesis(c))
         {
-            if (!isspace(previousC) && !is_operator(previousC) && !is_bracket(previousC) && !is_separator(previousC) && !is_parenthesis(previousC))
+            if (!isspace(previousC) && !is_operator(previousC, '_') && !is_bracket(previousC) && !is_separator(previousC) && !is_parenthesis(previousC))
                 fputc(' ', outputF);
             fputc(c, outputF);
+            if (operator_length == 2)
+            {
+                fputc(nextC, outputF);
+                fgetc(inputF);
+            }
             fputc(' ', outputF);
         }
         else
@@ -240,13 +271,16 @@ void lexemSeparation(FILE *inputF, FILE *outputF)
 
 void lexemChategorization(FILE *inputF, FILE *outputF)
 {
-    char c, previousC;
+    char c, previousC, nextC;
     char word[100];
     int i = 0;
 
     while ((c = fgetc(inputF)) != EOF)
     {
-        if (is_operator(c) || is_bracket(c) || is_separator(c) || is_parenthesis(c) || isspace(c))
+        nextC = fgetc(inputF);
+        ungetc(nextC, inputF);
+        int operator_length = is_operator(c, nextC);
+        if (operator_length || is_bracket(c) || is_separator(c) || is_parenthesis(c) || isspace(c))
         {
             if (i > 0)
             {
@@ -265,8 +299,13 @@ void lexemChategorization(FILE *inputF, FILE *outputF)
                     fprintf(outputF, "[unkn %s] ", word);
                 i = 0;
             }
-            if (is_operator(c))
+            if (operator_length == 1)
                 fprintf(outputF, "[op %c] ", c);
+            else if (operator_length == 2)
+            {
+                fprintf(outputF, "[op %c%c] ", c, nextC);
+                fgetc(inputF);
+            }
             else if (is_bracket(c))
                 fprintf(outputF, "[brac %c] ", c);
             else if (is_separator(c))
@@ -285,6 +324,8 @@ void lexemChategorization(FILE *inputF, FILE *outputF)
 void printInputOutput(FILE *inputF, FILE *outputF)
 {
     char c;
+    rewind(inputF);
+    rewind(outputF);
     printf("Input file: read.c\n\n");
     while ((c = fgetc(inputF)) != EOF)
         printf("%c", c);
@@ -295,39 +336,33 @@ void printInputOutput(FILE *inputF, FILE *outputF)
 
 int main()
 {
-    FILE *inputF, *outputF;
+    FILE *readR = fopen("read.c", "r");
+    FILE *outW = fopen("out.txt", "w");
 
-    inputF = fopen("read.c", "r");
-    outputF = fopen("out.txt", "w");
+    removeComments(readR, outW);
 
-    removeComments(inputF, outputF);
+    fclose(outW);
 
-    fclose(outputF);
-    fclose(inputF);
+    FILE *outR = fopen("out.txt", "r");
+    FILE *out1W = fopen("out1.txt", "w");
 
-    inputF = fopen("out.txt", "r");
-    outputF = fopen("out1.txt", "w");
+    lexemSeparation(outR, out1W);
 
-    lexemSeparation(inputF, outputF);
+    fclose(out1W);
 
-    fclose(inputF);
-    fclose(outputF);
+    FILE *out1R = fopen("out1.txt", "r");
+    FILE *out2W = fopen("out2.txt", "w");
 
-    inputF = fopen("out1.txt", "r");
-    outputF = fopen("out2.txt", "w");
+    lexemChategorization(out1R, out2W);
 
-    lexemChategorization(inputF, outputF);
+    fclose(out2W);
 
-    fclose(inputF);
-    fclose(outputF);
+    FILE *out2R = fopen("out2.txt", "r");
 
-    inputF = fopen("read.c", "r");
-    outputF = fopen("out2.txt", "r");
+    printInputOutput(readR, out2R);
 
-    printInputOutput(inputF, outputF);
-
-    fclose(inputF);
-    fclose(outputF);
+    fclose(readR);
+    fclose(out2R);
 
     return 0;
 }
